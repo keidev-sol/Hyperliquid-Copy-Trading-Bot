@@ -36,14 +36,6 @@ async function validateSetup() {
     errors.push(`❌ Configuration validation failed: ${error}`);
   }
 
-  // Check SDK availability
-  try {
-    await import('@nktkas/hyperliquid');
-    console.log('✅ Hyperliquid SDK found');
-  } catch (error) {
-    warnings.push('⚠️  Hyperliquid SDK not found. You may need to install it or adjust imports.');
-  }
-
   // Check logs directory
   if (!existsSync('logs')) {
     warnings.push('⚠️  logs/ directory will be created automatically');

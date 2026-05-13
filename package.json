@@ -14,7 +14,6 @@
   "license": "MIT",
   "description": "Production-grade Hyperliquid copy trading bot that mirrors trades from a target wallet in real-time",
   "dependencies": {
-    "@nktkas/hyperliquid": "^0.1.0",
     "dotenv": "^16.4.7",
     "ethers": "6.13.4",
     "winston": "3.17.0",
