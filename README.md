@@ -2,7 +2,24 @@
 
 ## Overview
 
-A production-grade copy trading bot built in TypeScript (Node.js) that mirrors trades from a target Hyperliquid wallet in real-time. It listens for fills/trades, copies opens, reduces, and closes positions while applying configurable risk parameters, supports dry-run and testnet modes, and offers safety/resilience features.
+A production-grade copy trading bot built in TypeScript (Node.js) that mirrors trades from a target Hyperliquid wallet in real time. It subscribes to the target account’s activity over WebSocket, reacts to fills, and attempts to **replicate opens, adds, reductions, and closes** on your account while applying configurable risk limits.
+
+### What it does
+
+- Keeps a live connection to Hyperliquid and processes new fill events as they appear for `TARGET_WALLET`.
+- Scales copied size using the equity ratio between your account and the target (with `SIZE_MULTIPLIER`), then enforces notional, leverage, blocked-asset, and concurrency limits.
+- Supports **testnet** and **dry-run** so you can validate behavior before risking mainnet capital.
+- Optional **Telegram** alerts and periodic **health checks** to compare your positions to the target’s snapshot.
+
+### What it does *not* guarantee
+
+- **Identical execution** to the target: latency, slippage, partial fills, Funding/cancel quirks, and API errors can cause divergence.
+- **Profit** or **capital preservation**: copy trading inherits the target’s strategy *and* downside.
+- **Compliance**: you are responsible for whether copying a given wallet is allowed in your jurisdiction and for the target’s terms of use.
+
+### Who it’s for
+
+Traders and builders who already understand perpetuals, leverage, and self-custody keys, and who want an automated “follow” layer with explicit risk caps—not a turnkey guaranteed system.
 
 ## Features
 
@@ -28,9 +45,10 @@ A production-grade copy trading bot built in TypeScript (Node.js) that mirrors t
 
 ### Configuration & Validation
 
-- `.env` + `zod` schema for strong typed config
+- `.env` + `zod` schema for strongly typed config
 - Required: `PRIVATE_KEY`, `TARGET_WALLET`, `TESTNET` (boolean)
 - Optional: `SIZE_MULTIPLIER`, `MAX_LEVERAGE`, `BLOCKED_ASSETS` (array), `DRY_RUN`, `LOG_LEVEL`
+- `npm run validate` — loads config and checks `.env` / `node_modules` before you start (`scripts/validate-setup.ts`)
 
 ### Architecture & Code Quality
 
@@ -63,11 +81,13 @@ A production-grade copy trading bot built in TypeScript (Node.js) that mirrors t
 ## Project Structure
 
 ```
-hyperliquid-copy-bot/
+Hyperliquid-copytrading-bot/
 ├── package.json
 ├── tsconfig.json
 ├── .env.example
 ├── README.md
+├── scripts/
+│   └── validate-setup.ts      # Pre-flight config check (npm run validate)
 ├── src/
 │   ├── index.ts                 # Main entry point
 │   ├── config.ts                # Configuration with zod validation
@@ -96,7 +116,7 @@ hyperliquid-copy-bot/
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd hyperliquid-copy-bot
+   cd Hyperliquid-copytrading-bot
    ```
 
 2. **Install dependencies**
@@ -124,10 +144,24 @@ hyperliquid-copy-bot/
    npm run build
    ```
 
-5. **Start the bot**
+5. **Validate configuration (recommended)**
+   ```bash
+   npm run validate
+   ```
+   Confirms `.env` loads, required variables parse, and basic paths exist before you go live.
+
+6. **Start the bot**
    ```bash
    npm start
    ```
+
+### Pre-flight checklist (mainnet)
+
+1. Run on **testnet** with `DRY_RUN=true`, then `DRY_RUN=false`, before you trust mainnet behavior.
+2. Confirm `TARGET_WALLET` is the **exact** address you intend to follow (vault vs EOA differences matter).
+3. Set `MIN_NOTIONAL`, `MAX_LEVERAGE`, and `MAX_POSITION_SIZE_PERCENT` conservatively until you’ve observed a session.
+4. Ensure the machine running the bot is **stable** (uptime, clock sync, network); WebSocket drops are handled but prolonged outages can desync positions vs the target.
+5. **Never** commit `.env` or share `PRIVATE_KEY`; use a dedicated trading key with limited funds if possible.
 
 ## Configuration
 
@@ -354,15 +388,16 @@ Time: 1/19/2026, 2:00:00 PM
 ```
 
 **Health Check Alert:**
-``
+```
+⚠️ Position drift
 
 Account Status:
-• Our Equity: `$5000.00`
-• Target Equity: `$10000.00`
+• Our Equity: $5000.00
+• Target Equity: $10000.00
 • Our Positions: 2
 • Target Positions: 2
 
-• BTC: Our `0.05` vs Target `0.1` (Diff: `0.05`)
+• BTC: Our 0.05 vs Target 0.1 (Diff: 0.05)
 
 Checked: 1/19/2026, 2:00:00 PM
 ```
@@ -422,6 +457,13 @@ LOG_LEVEL=debug
 - **Educational Purpose**: This is for educational purposes only
 - **Test First**: Always test on testnet before using real funds
 - **Private Key Security**: Never share your private key. Store securely.
+- **Operational Risk**: Bugs, exchange changes, or connectivity issues can cause missed trades or unintended exposure—monitor logs and account state continuously while running the bot.
+
+## Contact
+
+**Telegram**: [t.me/Kei4650](https://t.me/Kei4650) (@Kei4650)
+
+Use this for questions about this project, integration help, or other requests. Response time is best-effort; for bugs, prefer opening a GitHub issue with logs and redacted config.
 
 ## Development
 
@@ -461,10 +503,11 @@ MIT License — free to use, modify, but no warranty.
 
 For issues, questions, or contributions:
 
-1. Check existing GitHub issues
-2. Review Hyperliquid documentation
-3. Test on testnet first
-4. Enable debug logging for troubleshooting
+1. **Contact**: [Telegram — @Kei4650](https://t.me/Kei4650) for direct questions about setup or behavior (see [Contact](#contact))
+2. Check existing GitHub issues for bug reports and discussions
+3. Review [Hyperliquid API docs](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api)
+4. Reproduce on **testnet** first; attach relevant log excerpts (redact secrets)
+5. Set `LOG_LEVEL=debug` when diagnosing execution or subscription issues
 
 ## Getting Started with Testnet
 
@@ -477,9 +520,11 @@ For issues, questions, or contributions:
 ## CLI Commands
 
 ```bash
-npm start          # Start the bot
-npm run build      # Build TypeScript
-npm run dev        # Development mode with watch
+npm start            # Start the bot (tsx src/index.ts)
+npm run build        # Compile TypeScript (tsc)
+npm run dev          # Development mode with file watch
+npm run validate     # Validate .env and basic setup (scripts/validate-setup.ts)
+npm run rebuild      # npm rebuild (native deps, if needed)
 ```
 
 ## Example .env File
